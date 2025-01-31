@@ -1,5 +1,5 @@
 ---
-title: "XXXXX"
+title: "Psychometric properties and normative data using Item Re-sponse Theory approach for three neuropsychological tests in Waranka children population"
 author: ""
 date: ""
 output: pdf_document
