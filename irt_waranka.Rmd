@@ -1,0 +1,699 @@
+---
+title: "XXXXX"
+author: ""
+date: ""
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(dplyr)
+library(car)
+library(lmtest)
+library(lavaan)
+library(ltm)
+library(lawstat)
+library(ggeffects)
+library(sjPlot)
+library(sjmisc)
+library(ggplot2)
+library(mirt)
+library(MVN)
+library(semTools)
+library(leaps)
+library(caret)
+library(apaTables)
+library(lawstat)
+```
+
+# Load data
+
+```{r}
+df <- read_excel("data_base.xlsx", sheet = "Hoja2")
+df$sex <- as.factor(df$sex)
+df<-na.exclude(df)
+ROCF_copy <- df[, 45:62] 
+ROCF_IR <- df[, 63:80] # ROCF-Immediate recall
+SVTT <- df[, 9:44] # Token test
+SVTT[SVTT == 0.5] <- 0
+PPVT <- df[, 81:272] #Peabody
+```
+
+# Variability
+
+```{r}
+# Crear una lista con los nombres de los conjuntos
+dataframes <- list(ROCF_copy = ROCF_copy, ROCF_IR = ROCF_IR, SVTT = SVTT, PPVT = PPVT)
+
+# Inicializar una lista para guardar resultados
+low_variance_results <- list()
+
+# Iterar sobre cada dataframe y calcular varianza
+for (name in names(dataframes)) {
+  # Extraer el dataframe actual
+  df <- dataframes[[name]]
+  
+  # Calcular varianza de cada ítem
+  variances <- apply(df, 2, var)
+  
+  # Identificar ítems con varianza baja
+  low_var <- which(variances < 0.005)
+  
+  # Guardar resultados en la lista
+  low_variance_results[[name]] <- low_var
+}
+
+# Mostrar los resultados
+low_variance_results
+```
+
+# Unidimensionality
+
+## Confirmatory Factor Analysis
+
+```{r, eval=FALSE}
+names_fit = c(
+  "chisq",
+  "df",
+  "pvalue",
+  "cfi",
+  "tli",
+  "rmsea",
+  "rmsea.ci.lower",
+  "rmsea.ci.upper",
+  "srmr"
+)
+
+names_table1 = c("ROCF_copy",
+                 "ROCF_IR",
+                 "SVTT",
+                 "PPVT")
+
+# Definir el modelo de CFA
+model_ROCF_copy <- '
+  # Modelo unidimensional
+  Factor1 =~ RC01 + RC02 + RC03 + RC04 + RC05 + RC06 + RC07 + RC08 + RC09 + 
+              RC10 + RC11 + RC12 + RC13 + RC14 + RC15 + RC16 + RC17 + RC18
+'
+
+model_ROCF_IR <- '
+  # Modelo unidimensional
+  Factor1 =~ RM01 + RM02 + RM03 + RM04 + RM05 + RM06 + RM07 + RM08 + RM09 + 
+              RM10 + RM11 + RM12 + RM13 + RM14 + RM15 + RM16 + RM17 + RM18
+'
+
+model_SVTT <- '
+  # Modelo unidimensional
+  Factor1 =~  tok01 + tok02 + tok03 + tok04 + tok05 + tok06 + tok07 + tok08 + 
+              tok09 + tok10 + tok11 + tok12 + tok13 + tok14 + tok15 + tok16 + 
+              tok17 + tok18 + tok19 + tok20 + tok21 + tok22 + tok23 + tok24 + 
+              tok25 + tok26 + tok27 + tok28 + tok29 + tok30 + tok31 + tok32 + 
+              tok33 + tok34 + tok35 + tok36
+'
+
+model_pea <- '
+  # Modelo unidimensional
+  Factor1 =~   
+              pea_21 + pea_22 + pea_23 + pea_24 + 
+              pea_25 + pea_26 + pea_27 + pea_28 + pea_29 + pea_30 + pea_31 + pea_32 + 
+              pea_33 + pea_34 + pea_35 + pea_36 + pea_37 + pea_38 + pea_39 + pea_40 + 
+              pea_41 + pea_42 + pea_43 + pea_44 + pea_45 + pea_46 + pea_47 + pea_48 + 
+              pea_49 + pea_50 + pea_51 + pea_52 + pea_53 + pea_54 + pea_55 + pea_56 + 
+              pea_57 + pea_58 + pea_59 + pea_60 + pea_61 + pea_62 + pea_63 + pea_64 + 
+              pea_65 + pea_66 + pea_67 + pea_68 + pea_69 + pea_70 + pea_71 + pea_72 + 
+              pea_73 + pea_74 + pea_75 + pea_76 + pea_77 + pea_78 + pea_79 + pea_80 + 
+              pea_81 + pea_82 + pea_83 + pea_84 + pea_85 + pea_86 + pea_87 + pea_88 + 
+              pea_89 + pea_90 + pea_91 + pea_92 + pea_93 + pea_94 + pea_95 + pea_96 + 
+              pea_97 + pea_98 + pea_99 + pea_100 + pea_101 + pea_102 + pea_103 + pea_104 + 
+              pea_105 + pea_106 + pea_107 + pea_108 + pea_109 + pea_110 + pea_111 + pea_112 + 
+              pea_113 + pea_114 + pea_115 + pea_116 + pea_117 + pea_118 + pea_119 + pea_120 + 
+              pea_121 + pea_122 + pea_123 + pea_124 + pea_125 + pea_126 + pea_127 + pea_128 + 
+              pea_129 + pea_130 + pea_131 + pea_132 + pea_133 + pea_134 + pea_135 + pea_136 + 
+              pea_137 + pea_138 + pea_139 + pea_140 + pea_141 + pea_142 + pea_143 + pea_144 + 
+              pea_145 + pea_146 + pea_147 + pea_148 + pea_149 + pea_150 + pea_151 + pea_152 + 
+              pea_153 + pea_154 + pea_155 + pea_156 + pea_157 + pea_158 + pea_159 + pea_160 + 
+              pea_161 + pea_162 + pea_163 + pea_164 + pea_165 + pea_166 + pea_167 + pea_168 +
+              pea_169 
+'
+fit_ROCF_copy <- cfa(model_ROCF_copy, ordered = T,  data = ROCF_copy)
+fit_ROCF_IR   <- cfa(model_ROCF_IR, ordered = T,  data = ROCF_IR)
+fit_SVTT      <- cfa(model_SVTT, ordered = T, data = SVTT)
+fit_pea       <- cfa(model_pea,  data = PPVT, ordered = T,  std.lv = T, estimator= "DWLS", se = "robust")
+```
+
+
+```{r, echo= F, warning=FALSE, message=FALSE}
+load("cfa.RData")
+```
+
+# Models fit
+
+```{r}
+ROCF_copy_cfa <- fitmeasures(fit_ROCF_copy, fit.measures = names_fit)
+ROCF_IR_cfa   <- fitmeasures(fit_ROCF_IR, fit.measures = names_fit)
+SVTT_cfa <- fitmeasures(fit_SVTT, fit.measures = names_fit)
+PPVT_cfa <- fitmeasures(fit_pea, fit.measures = names_fit)
+
+tab_summary_cfa = rbind(ROCF_copy_cfa, ROCF_IR_cfa, SVTT_cfa,PPVT_cfa)
+colnames(tab_summary_cfa) = names_fit
+rownames(tab_summary_cfa) = names_table1
+round(tab_summary_cfa, 3)
+write.csv(tab_summary_cfa, "tab_summary_cfa.csv")
+```
+
+# Reliability and Internal Consistenci
+
+```{r, message=FALSE, warning=FALSE}
+# Lista de modelos ajustados
+fits <- list(
+  fit_ROCF_copy = fit_ROCF_copy,
+  fit_ROCF_IR = fit_ROCF_IR,
+  fit_SVTT = fit_SVTT,
+  fit_pea = fit_pea
+)
+
+# Función para calcular fiabilidad
+calculate_reliability <- function(fit) {
+  rel <- reliability(fit)
+  data.frame(
+    Alpha = rel["alpha", ],   # Extrae alfa para cada dimensión
+    Alpha_Ordinal = rel["alpha.ord", ],
+    Omega = rel["omega", ]    # Extrae omega para cada dimensión
+  )
+}
+
+# Aplicar a todos los modelos
+reliability_results <- lapply(fits, calculate_reliability)
+
+# Combinar resultados en una tabla
+reliability_combined <- bind_rows(reliability_results, .id = "Model")
+
+# Mostrar resultados combinados
+print(reliability_combined)
+
+write.csv(reliability_combined, "reliability_combined.csv")
+```
+
+# Item Response Modeling
+
+## Graded Response Model
+
+```{r, warning=FALSE, message=FALSE}
+# ROCF copy
+grm_ROCF_copy<- grm(
+  ROCF_copy,
+  constrained = FALSE,
+  IRT.param = TRUE,
+  Hessian = FALSE,
+  start.val = NULL,
+  na.action = NULL,
+  control = list()
+)
+grm_ROCF_copy
+
+## Difficulty
+dific_RC <- coef(grm_ROCF_copy)
+#dificultades_grmRC <-  dific_RC[, "Extrmt3"] #Dificultad de una sola categoria
+#print(dificultades_grmRC)
+dificultad_media_grmRC <-  rowMeans(dific_RC[, c("Extrmt1", "Extrmt2", "Extrmt3")])
+print(dificultad_media_grmRC)
+
+# ROCF Immediate Recal
+grm_ROCF_IR <- grm(
+  ROCF_IR,
+  constrained = FALSE,
+  IRT.param = TRUE,
+  Hessian = FALSE,
+  start.val = NULL,
+  na.action = NULL,
+  control = list()
+)
+grm_ROCF_IR
+
+# Difficulty
+dific_RM <- coef(grm_ROCF_IR) 
+#dificultades_grmRM <- dific_RM[, "Extrmt3"] #Dificultad de una sola categoria
+#print(dificultades_grmRM)
+dificultad_media_grmRM <- rowMeans(dific_RM[, c("Extrmt1", "Extrmt2", "Extrmt3")])
+print(dificultad_media_grmRM)
+
+```
+
+## 2PL
+
+```{r}
+# SVTT
+SVTT_2PL <- mirt(SVTT, 1, itemtype = '2PL')
+coef(SVTT_2PL, simplify = TRUE, IRTpars = TRUE)
+#head(fscores(SVTT_2PL,method = "ML"),399)
+#plot(SVTT_2PL,type='trace')
+
+# PPVT
+PPVT_2PL <- mirt(PPVT[, -c(2,4,5,10,11,20)], 1, itemtype = '2PL')
+coef(PPVT_2PL, simplify = TRUE, IRTpars = TRUE)
+#head(fscores(PPVT_2PL,method = "ML"),399)
+#plot(PPVT_2PL,type='trace')
+```
+
+## Ability Score (Theta score) estimation
+
+```{r}
+#ROCF Copy
+fs_ROCF_copy <-  factor.scores.grm(grm_ROCF_copy,
+                                   resp.patterns = ROCF_copy,
+                                   method = c("EAP"))
+theta_ROCF_copy <- as.data.frame(fs_ROCF_copy[["score.dat"]])
+df$theta_ROCF_copy <- theta_ROCF_copy$z1
+
+#ROCF Immediate Recall
+fs_ROCF_IR <- factor.scores.grm(grm_ROCF_IR,
+                                resp.patterns = ROCF_IR,
+                                method = c("EAP"))
+theta_ROCF_IR <- as.data.frame(fs_ROCF_IR[["score.dat"]])
+df$theta_ROCF_IR <- theta_ROCF_IR$z1
+
+#SVTT
+fs_SVTT <- fscores(SVTT_2PL, full.scores.SE = FALSE)
+theta_SVTT <- as.data.frame(fs_SVTT)
+df$theta_SVTT <- fs_SVTT
+
+# PPTV
+fs_PPTV <- fscores(PPVT_2PL, full.scores.SE = FALSE)
+theta_PPTV <- as.data.frame(fs_PPTV)
+df$theta_PPTV <- fs_PPTV
+```
+
+# Demographic Efect
+
+## ROCF Copy
+
+```{r}
+# Variable selection
+modRC <-
+  regsubsets(theta_ROCF_copy ~
+               (poly(age, 2) +
+                  log(mpe + 1) +
+                  sex)^2, data = df)
+
+sum.modelosRC <- summary(modRC)
+par(mfrow = c(1, 3))
+plot(sum.modelosRC$adjr2, type = "b")
+abline(v = which.max(sum.modelosRC$adjr2), col = 2)
+plot(sum.modelosRC$cp, type = "b")
+abline(v = which.min(sum.modelosRC$cp), col = 2) #Cp Mallows
+plot(sum.modelosRC$bic, type = "b")
+abline(v = which.min(sum.modelosRC$bic), col = 2) #BIC
+sum.modelosRC$which[2, ]
+
+# Final model fit
+model_ROCF_copy <-
+  lm(theta_ROCF_copy ~
+       poly(age, 2) +
+       log(mpe + 1) +
+       poly(age, 2):log(mpe + 1),
+     data = df)
+
+summary(model_ROCF_copy)
+
+# Assumption verification
+car::vif(model_ROCF_copy)
+max(cooks.distance(model_ROCF_copy))
+
+df$res <- model_ROCF_copy$residuals
+grupos <- cut(
+  model_ROCF_copy$fitted.values,
+  quantile(model_ROCF_copy$fitted.values, (0:4) / 4),
+  include.lowest = TRUE
+)
+lawstat::levene.test(rstandard(model_ROCF_copy), grupos)
+
+df$z_copy <- df$res / sd(df$res)
+ks.test(x = df$z_copy,
+        "pnorm",
+        mean = 0,
+        sd = 1)
+```
+
+## ROCF Immediate Recall
+
+```{r}
+# Variable selection
+mod_rm  <-
+  regsubsets(
+    theta_ROCF_IR ~ 
+      (poly(age,2) + 
+      log(mpe+1) + 
+      sex)^2,
+    data = df
+  )
+
+sum.modelosRM <- summary(mod_rm)
+par(mfrow = c(1, 3)) 
+plot(sum.modelosRM$adjr2, type = "b")
+abline(v = which.max(sum.modelosRM$adjr2), col = 2)
+plot(sum.modelosRM$cp, type = "b")
+abline(v = which.min(sum.modelosRM$cp), col = 2) #Cp Mallows
+plot(sum.modelosRM$bic, type = "b")
+abline(v = which.min(sum.modelosRM$bic), col = 2) #BIC
+sum.modelosRM$which[2,]
+
+# Final model fit
+model_ROCF_IR <-
+  lm(theta_ROCF_IR ~ 
+       poly(age, 2) + 
+       log(mpe+1)+
+       poly(age, 2):log(mpe + 1), 
+     data = df) 
+
+summary(model_ROCF_IR)
+
+# Assumption verification
+car::vif(model_ROCF_IR)
+max(cooks.distance(model_ROCF_IR))
+
+df$res <- model_ROCF_IR$residuals
+grupos <- cut(
+  model_ROCF_IR$fitted.values,
+  quantile(model_ROCF_IR$fitted.values, (0:4) / 4),
+  include.lowest = TRUE
+)
+lawstat::levene.test(rstandard(model_ROCF_IR), grupos)
+
+df$z_rm <- df$res / sd(df$res)
+ks.test(x = df$z_rm,
+        "pnorm",
+        mean = 0,
+        sd = 1)
+```
+
+
+## SVTT
+
+```{r}
+# Variable selection
+mod_T <-
+  regsubsets(
+    theta_SVTT ~ 
+      (poly(age,2) + 
+      log(mpe+1) + 
+      sex)^2,
+    data = df
+  )
+
+sum.modelosT <- summary(mod_T)
+par(mfrow = c(1, 3))
+plot(sum.modelosT$adjr2, type = "b")
+abline(v = which.max(sum.modelosT$adjr2), col = 2)
+plot(sum.modelosT$cp, type = "b")
+abline(v = which.min(sum.modelosT$cp), col = 2) #Cp Mallows
+plot(sum.modelosT$bic, type = "b")
+abline(v = which.min(sum.modelosT$bic), col = 2) #BIC
+sum.modelosT$which[2, ]
+
+# Final model fit
+model_SVTT<-
+  lm(theta_SVTT ~ 
+       poly(age,2)+ 
+       sex+
+       poly(age,2):sex, 
+     data = df) 
+
+summary(model_SVTT)
+
+# Assumption verification
+car::vif(model_SVTT)
+max(cooks.distance(model_SVTT))
+
+df$res <- model_SVTT$residuals
+grupos <- cut(model_SVTT$fitted.values,
+              quantile(model_SVTT$fitted.values, (0:4)/4), 
+              include.lowest = TRUE)
+lawstat::levene.test(rstandard(model_SVTT), grupos)
+
+df$z_token<-df$res/sd(df$res)
+ks.test(x = df$z_token,"pnorm", mean=0, sd=1) # n
+
+```
+
+## PPTV
+
+```{r}
+# Variable selection
+mod_p  <-
+  regsubsets(
+    theta_PPTV ~ 
+      (poly(age,2) + 
+      log(mpe+1) + 
+      sex)^2,
+    data = df
+  )
+
+sum.modelosP <- summary(mod_p)
+par(mfrow = c(1, 3)) 
+plot(sum.modelosP$adjr2, type = "b")
+abline(v = which.max(sum.modelosP$adjr2), col = 2)
+plot(sum.modelosP$cp, type = "b")
+abline(v = which.min(sum.modelosP$cp), col = 2) #Cp Mallows
+plot(sum.modelosP$bic, type = "b")
+abline(v = which.min(sum.modelosP$bic), col = 2) #BIC
+sum.modelosP$which[2,]
+
+# Final model fit
+model_PPTV<-
+  lm(theta_PPTV ~ 
+       poly(age, 2) + 
+       log(mpe+1)+
+       poly(age, 2):log(mpe + 1), 
+     data = df) 
+summary(model_PPTV)
+
+# Assumption verification
+car::vif(model_PPTV)
+max(cooks.distance(model_PPTV)) 
+
+df$res <- model_PPTV$residuals
+grupos <- cut(model_PPTV$fitted.values,
+              quantile(model_PPTV$fitted.values, (0:4)/4), 
+              include.lowest = TRUE)
+lawstat::levene.test(rstandard(model_PPTV), grupos)
+
+#Cuartiles#
+df$ntile1<-ntile(predict(model_PPTV), 4) 
+df$ntile1<-as.factor(df$ntile1)
+table(df$ntile1)
+summary(predict(model_PPTV))
+
+df$res <- model_PPTV$residuals
+df %>% group_by(ntile1) %>% 
+  summarise(desv_t =sd(res, na.rm = T))
+
+# Add predictions from the model_PPTV to the data frame
+df$pred <- predict(model_PPTV)
+
+# Group by `ntile1` and calculate the minimum and maximum of predictions
+df_summary <- df %>%
+  group_by(ntile1) %>%
+  summarise(
+    min_pred = min(pred, na.rm = TRUE),  # Minimum prediction
+    max_pred = max(pred, na.rm = TRUE)  # Maximum prediction
+  )
+
+# Display the result
+print(df_summary)
+
+
+#z=e/SDe
+df$z_pptv <- rep(NA,nrow(df))
+df$z_pptv<-as.numeric(df$z_pptv)
+df[df$ntile1==1,]$z_pptv <- df[df$ntile1==1,]$res/sd(df[df$ntile1==1,]$res)
+df[df$ntile1==2,]$z_pptv <- df[df$ntile1==2,]$res/sd(df[df$ntile1==2,]$res)
+df[df$ntile1==3,]$z_pptv <- df[df$ntile1==3,]$res/sd(df[df$ntile1==3,]$res)
+df[df$ntile1==4,]$z_pptv <- df[df$ntile1==4,]$res/sd(df[df$ntile1==4,]$res)
+
+df$z_pptv<-df$res/sd(df$res)
+ks.test(x = df$z_pptv,"pnorm", mean=0, sd=1) 
+```
+
+
+# K-Fold Cross-Validation (k = 5) and overfiting estimation
+
+```{r}
+# Set a seed for reproducibility
+set.seed(123)
+
+# Define the dataset and model formulas
+model_formulas <- list(
+  ROCF_copy = theta_ROCF_copy ~ poly(age, 2) + log(mpe + 1) + poly(age, 2):log(mpe + 1),
+  ROCF_IR = theta_ROCF_IR ~ poly(age, 2) + log(mpe + 1) + poly(age, 2):log(mpe + 1),
+  SVTT = theta_SVTT ~ poly(age, 2) + sex + poly(age, 2):sex,
+  PPTV = theta_PPTV ~ poly(age, 2) + log(mpe + 1) + poly(age, 2):log(mpe + 1)
+)
+
+# Configure K-Fold Cross-Validation (k = 5)
+train_control <- trainControl(
+  method = "cv",     # Cross-validation
+  number = 5,        # Number of folds
+  savePredictions = "final", # Save predictions for further analysis
+  verboseIter = FALSE        # Do not print progress
+)
+
+# Initialize a list to store results
+results <- list()
+
+# Loop through each model formula
+for (model_name in names(model_formulas)) {
+  # Train the model using K-Fold Cross-Validation
+  model_cv <- train(
+    model_formulas[[model_name]],  # Current formula
+    data = df,                    # Dataset
+    method = "lm",                # Linear model
+    trControl = train_control     # Cross-validation configuration
+  )
+  
+  # Metrics from cross-validation
+  cv_rmse <- model_cv$results$RMSE  # Average RMSE from cross-validation
+  
+  # Metrics from training
+  train_rmse <- sqrt(mean((model_cv$finalModel$residuals)^2))  # RMSE on training data
+  
+  # Calculate the percentage of overfitting
+  overfit_percentage <- ((cv_rmse - train_rmse) / train_rmse) * 100
+  
+  # Store the results in the list
+  results[[model_name]] <- list(
+    Training_RMSE = train_rmse,
+    Validation_RMSE = cv_rmse,
+    Overfitting_Percentage = overfit_percentage
+  )
+}
+
+# Display summarized results for all models
+for (model_name in names(results)) {
+  cat("\nModel:", model_name, "\n")
+  cat("Training RMSE:", results[[model_name]]$Training_RMSE, "\n")
+  cat("Validation RMSE (Cross-Validation):", results[[model_name]]$Validation_RMSE, "\n")
+  cat("Overfitting Percentage:", results[[model_name]]$Overfitting_Percentage, "%\n")
+}
+
+```
+
+
+# Plots
+
+## Models
+
+```{r, warning=FALSE, message=FALSE}
+custom_theme <- theme(
+  plot.title = element_text(size = 14, color = "black"),
+  axis.title.x = element_text(size = 14, color = "black"),
+  axis.title.y = element_text(size = 12, color = "black"),
+  axis.text.x = element_text(size = 12, color = "black"),
+  axis.text.y = element_text(size = 12, color = "black"),
+  legend.title = element_text(size = 14, color = "black"),
+  legend.text = element_text(size = 12, color = "black")
+)
+
+p1 <- ggpredict(model_ROCF_copy, terms = c("age", "mpe[5,11,18]"),
+                back.transform = T, ci_level = F) %>%
+  plot(colors = "bw") + 
+  labs(
+    x = "Age (Yrs.)",
+    y = "Predicted mean theta-score for ROCFT Copy",
+    title = "",
+    linetype = "MPE (Yrs.)") +
+  scale_x_continuous(breaks = seq (6, 17, by = 1))+
+  scale_y_continuous(breaks = seq(-2.5, 1, by = 1), limits = c(-2.5,1)
+  )+
+  custom_theme
+
+
+p2 <- ggpredict(model_ROCF_IR, terms = c("age", "mpe[5,11,18]"),
+                back.transform = T, ci_level = F) %>%
+  plot(colors = "bw") + 
+  labs(
+    x = "Age (Yrs.)",
+    y = "Predicted mean theta-score for ROCFT Immediate Recall",
+    title = "",
+    linetype = "MPE (Yrs.)") +
+  scale_x_continuous(breaks = seq (6, 17, by = 1))+
+  scale_y_continuous(breaks = seq(-2.5, 1, by = 1), limits = c(-2.5,1)
+  )+
+  custom_theme
+
+
+p3 <- ggpredict(model_SVTT, terms = c("age", "sex"),
+                ci_level = F) %>%
+  plot(colors = "bw") + 
+  labs(
+    x = "Age (Yrs.)",
+    y = "Predicted mean theta-score for Token Test",
+    title = "",
+    linetype = "Sex") +
+  scale_x_continuous(breaks = seq (6, 17, by = 1))+
+  scale_y_continuous(breaks = seq(-2.5, 1, by = 1), limits = c(-2.5,1)
+  )+
+  custom_theme
+
+p4 <- ggpredict(model_PPTV, terms = c("age", "mpe[5,11,18]"),
+                back.transform = T, ci_level = F) %>%
+  plot(colors = "bw") + 
+  labs(
+    x = "Age (Yrs.)",
+    y = "Predicted mean theta-score for PPVT-III",
+    title = "",
+    linetype = "MPE (Yrs.)") +
+  scale_x_continuous(breaks = seq (6, 17, by = 1))+
+  scale_y_continuous(breaks = seq(-2.5, 2, by = 1), limits = c(-2.5,2)
+  )+
+  custom_theme
+```
+
+
+```{r, fig.height=12, fig.width=12}
+figure_1<-plot_grid(list(p1,p2,p3,p4), tags = TRUE)
+ggsave("Figure_1.jpeg", plot = figure_1, width = 12, height = 12, dpi = 600, units = "in", device = "jpeg")
+```
+
+# IRT plots
+
+```{r}
+#ROCF Copy
+par(mfrow = c(2, 2))
+plot(
+  grm_ROCF_copy,
+  lwd = 2,
+  cex = 1.2,
+  legend = TRUE,
+  cx = "left",
+  xlab = "Latent Trait",
+  cex.main = 1.5,
+  cex.lab = 1.3,
+  cex.axis = 1.1
+)
+par(mfrow = c(1, 1))
+
+#ROCF Immediate Recall
+plot(
+  grm_ROCF_IR,
+  items = c(1, 3),
+  lwd = 2,
+  cex = 1.2,
+  legend = TRUE,
+  cx = "left",
+  xlab = "Latent Trait",
+  cex.main = 1.5,
+  cex.lab = 1.3,
+  cex.axis = 1.1,
+  col = "lightgray",
+  lty = "dotted"
+)
+
+#SVTT
+plot(SVTT_2PL,type='trace')
+
+# PPVT
+plot(PPVT_2PL,type='trace')
+
+```
+
